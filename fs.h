@@ -26,10 +26,11 @@ typedef struct node {
 void fs_init(void);
 void fs_destroy(void);
 
-int mkdir_p(const char *path); // create directory (parents optional)
-int create_file(const char *path); // create empty file
+int mkdir_p(const char *path);
+int create_file(const char *path);
 ssize_t write_file(const char *path, size_t off, const void *buf, size_t len);
 ssize_t read_file(const char *path, size_t off, void *buf, size_t len);
 int rm_file(const char *path);
 int rmdir_empty(const char *path);
-int ls_dir(const char *path); // print to stdout for simplicity
+int ls_dir(const char *path);
+int fs_cd(const char *path);

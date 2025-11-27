@@ -4,6 +4,7 @@
 #include <string.h>
 
 static node_t *root;
+static node_t *cwd;
 
 static node_t *node_new(node_type t, const char *name, node_t *parent) {
     node_t *n = calloc(1, sizeof(*n));
@@ -11,7 +12,12 @@ static node_t *node_new(node_type t, const char *name, node_t *parent) {
     strncpy(n->name, name, NAME_MAX);
     return n;
 }
-void fs_init(void) { root = node_new(N_DIR, "", NULL); }
+
+void fs_init(void) {
+    root = node_new(N_DIR, "", NULL);
+    cwd = root;
+}
+
 static void node_free(node_t *n) {
     if (!n) return;
     if (n->type == N_DIR)
@@ -19,6 +25,7 @@ static void node_free(node_t *n) {
     free(n->data);
     free(n);
 }
+
 void fs_destroy(void) { node_free(root); root=NULL; }
 
 static node_t *dir_add(node_t *dir, node_t *child) {
@@ -34,46 +41,111 @@ static node_t *dir_find(node_t *dir, const char *name) {
     return NULL;
 }
 
-// Split path, walk from root. If want parent for creation, set want_parent=1.
-static node_t *walk(const char *path, int want_parent, char out_leaf[NAME_MAX+1]) {
-    if (!path || path[0]!='/') return NULL;
-    node_t *cur = root;
-    char tmp[1024]; strncpy(tmp, path, sizeof(tmp)); tmp[sizeof(tmp)-1]=0;
 
-    //add to gcc compile flag: -D_POSIX_C_SOURCE=200809L
-    //IF USING STRTOK_R (can use STRTOK but concurrency/thread safety issues,
-    //but lowk not a problem with this.)
-    char *save=NULL; char *tok = strtok_r(tmp, "/", &save);
+static node_t *walk_from(node_t *start,
+                         const char *path,
+                         int want_parent,
+                         char out_leaf[NAME_MAX+1]) {
+    if (!path) return NULL;
+
+    int absolute = (path[0] == '/');
+    node_t *cur = absolute ? root : (start ? start : root);
+
+    char tmp[1024];
+    strncpy(tmp, path, sizeof(tmp));
+    tmp[sizeof(tmp)-1] = 0;
+
+    char *save = NULL;
+    char *tok  = strtok_r(tmp, "/", &save);
     char *next = strtok_r(NULL, "/", &save);
-    while (tok) {
-        if (strlen(tok)==0 || strlen(tok)>NAME_MAX) return NULL;
-        if (!next) { // last component
-            if (want_parent) { strncpy(out_leaf, tok, NAME_MAX); return cur; }
-            return dir_find(cur, tok);
-        }
-        cur = dir_find(cur, tok);
-        if (!cur || cur->type!=N_DIR) return NULL;
-        tok = next; next = strtok_r(NULL, "/", &save);
+
+    // Case: path is just "/" or ""
+    if (!tok) {
+        return want_parent ? cur : cur;
     }
-    return want_parent ? root : root; // "/" case
+
+    while (tok) {
+        if (strlen(tok) == 0 || strlen(tok) > NAME_MAX) return NULL;
+
+        if (strcmp(tok, ".") == 0) {
+            // stay in cur
+        } else if (strcmp(tok, "..") == 0) {
+            if (cur->parent) cur = cur->parent; // root stays at root
+        } else if (!next) {
+            // last component
+            if (want_parent) {
+                if (out_leaf) {
+                    strncpy(out_leaf, tok, NAME_MAX);
+                    out_leaf[NAME_MAX] = '\0';
+                }
+                return cur;
+            }
+            return dir_find(cur, tok);
+        } else {
+            // middle component: must be a directory we can descend into
+            cur = dir_find(cur, tok);
+            if (!cur || cur->type != N_DIR) return NULL;
+        }
+
+        tok  = next;
+        next = strtok_r(NULL, "/", &save);
+    }
+
+    // if we consumed everything cleanly and there was no special last component
+    return want_parent ? cur : cur;
+}
+
+int fs_cd(const char *path) {
+    node_t *d = walk_from(cwd, path, 0, NULL);
+    if (!d || d->type != N_DIR) return -1;
+    cwd = d;
+    return 0;
+}
+
+static node_t *walk(const char *path, int want_parent, char out_leaf[NAME_MAX+1]) {
+    return walk_from(cwd, path, want_parent, out_leaf);
 }
 
 int mkdir_p(const char *path) {
-    if (!path || path[0]!='/') return -1;
-    if (strcmp(path, "/")==0) return 0;
-    node_t *cur = root;
+    if (!path) return -1;
+    if (strcmp(path, "/") == 0 || strcmp(path, "") == 0) return 0;
 
-    char tmp[1024]; strncpy(tmp, path, sizeof(tmp)); tmp[sizeof(tmp)-1]=0;
-    char *save=NULL; char *tok = strtok_r(tmp, "/", &save);
+    int absolute = (path[0] == '/');
+    node_t *cur  = absolute ? root : cwd;
+
+    char tmp[1024];
+    strncpy(tmp, path, sizeof(tmp));
+    tmp[sizeof(tmp)-1] = 0;
+
+    char *save = NULL;
+    char *tok  = strtok_r(tmp, "/", &save);
+
+    // Case: just "/" or "//"
+    if (!tok) return 0;
+
     while (tok) {
-        node_t *n = dir_find(cur, tok);
-        if (!n) {
-            n = node_new(N_DIR, tok, cur);
-            if (!dir_add(cur, n)) return -1;
-        } else if (n->type!=N_DIR) return -1;
-        cur = n;
+        if (strlen(tok) == 0 || strlen(tok) > NAME_MAX) return -1;
+
+        if (strcmp(tok, ".") == 0) {
+            // stay
+        } else if (strcmp(tok, "..") == 0) {
+            if (cur->parent) cur = cur->parent;
+        } else {
+            // normal directory name
+            node_t *n = dir_find(cur, tok);
+            if (!n) {
+                n = node_new(N_DIR, tok, cur);
+                if (!dir_add(cur, n)) return -1;
+            } else if (n->type != N_DIR) {
+                // trying to mkdir where a file already exists
+                return -1;
+            }
+            cur = n;
+        }
+
         tok = strtok_r(NULL, "/", &save);
     }
+
     return 0;
 }
 
@@ -149,11 +221,22 @@ int rmdir_empty(const char *path) {
 }
 
 int ls_dir(const char *path) {
-    node_t *d = strcmp(path,"/")==0 ? root : walk(path, 0, NULL);
-    if (!d || d->type!=N_DIR) return -1;
-    for (size_t i=0;i<d->child_count;i++) {
+    node_t *d = NULL;
+
+    if (path == NULL || path[0] == '\0' || strcmp(path, ".") == 0) {
+        d = cwd;
+    } else if (strcmp(path, "/") == 0) {
+        d = root;
+    } else {
+        d = walk(path, 0, NULL);  // uses cwd inside if you've wrapped it
+    }
+
+    if (!d || d->type != N_DIR) return -1;
+
+    for (size_t i = 0; i < d->child_count; i++) {
         node_t *c = d->children[i];
-        printf("%s%s\n", c->name, c->type==N_DIR?"/":"");
+        printf("%s%s\n", c->name, c->type == N_DIR ? "/" : "");
     }
     return 0;
 }
+
