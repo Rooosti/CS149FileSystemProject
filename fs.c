@@ -202,11 +202,27 @@ int create_file(const char *path) {
     // Validate that the parent exists and it is a directory node.
     if (!parent || parent->type!=N_DIR) return -1;
 
+    // Validate leaf before creation (some of these are already checked by shell.c and other fs.c functions, but we want to make our program more robust).
+    if (leaf[0] == '\0') return -1; // Don't want to create files with empty names.
+    if (strcmp(leaf, ".") == 0 || strcmp(leaf, "..") == 0) return -1; // Prevent "." and ".." as file names.
+    if (strlen(leaf) > NAME_MAX) return -1; // Prevent names that are too long.
+
     // Prevent duplicate file creation so that we don't overwrite.
     if (dir_find(parent, leaf)) return -1;
 
+    // Prevent file creation if parent directory is READ_ONLY.
+    if (parent->attributes & ATTR_READONLY) return -1;
+
     // Create file node.
     node_t *f = node_new(N_FILE, leaf, parent);
+    if (!dir_add(parent, f)) {
+        node_free(f);
+        return -1;
+    }
+
+    // Though file metadata is handled by node_new(), we need to update the parent directory metadata.
+    time_t now = time(NULL);
+    parent->modified = parent->accessed = now;
 
     // Return result.
     return dir_add(parent, f) ? 0 : -1;
@@ -314,13 +330,22 @@ int rm_file(const char *path) {
 
         // Name must match filename (leaf) and the node type must be a file, not a directory.
         if (strncmp(c->name, leaf, NAME_MAX)==0 && c->type==N_FILE) {
+
+            // Prevent removal of a file in a READ_ONLY directory.
+            if (c->attributes & ATTR_READONLY) return -1;
             
             // Perform removal using swap-with-last algorithm.
             // This removes in O(1), doesn't shift other files, and only requires a copy operation.
             // However, it does not preserve file position/order in the directory listing.
-            node_free(c);
+            
+            // IMPORTANT: Swap first, then free to avoid use-after-free bug.
             parent->children[i] = parent->children[parent->child_count-1];
             parent->child_count--;
+            node_free(c);  // Now safe to free.
+
+            // Update parent metadata for modification time and also accessed time.
+            parent->modified = parent->accessed = time(NULL);
+
             return 0;
         }
     }
