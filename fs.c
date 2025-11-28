@@ -201,7 +201,7 @@ int mkdir_p(const char *path) {
 int create_file(const char *path) {
 
     // Parse path for file creation using leaf buffer (stores the filename, which is the last component of the path).
-    char leaf[NAME_MAX+1] = {0};
+    char leaf[NAME_MAX + 1] = {0};
 
     // Use want_parent = 1 to get the parent directory. 
     // For example, for "/documents/myfile.txt", returns "documents/" and puts "myfile.txt" in leaf.
@@ -332,14 +332,17 @@ int rm_file(const char *path) {
     node_t *parent = walk(path, 1, leaf); // Use walk() & want_parent = 1 to get the containing directory.
     if (!parent) return -1; 
 
+    // Prevent removal of a file in a READ_ONLY directory.
+    if (parent->attributes & ATTR_READONLY) return -1;
+
     // Search for the file in the parent directory using linear search on the parent directory's children array.
-    for (size_t i=0;i<parent->child_count;i++) {
+    for (size_t i = 0; i < parent->child_count; i++) {
         node_t *c = parent->children[i];
 
         // Name must match filename (leaf) and the node type must be a file, not a directory.
-        if (strncmp(c->name, leaf, NAME_MAX)==0 && c->type==N_FILE) {
+        if (strncmp(c->name, leaf, NAME_MAX) == 0 && c->type == N_FILE) {
 
-            // Prevent removal of a file in a READ_ONLY directory.
+            // Prevent removal of a READ_ONLY file.
             if (c->attributes & ATTR_READONLY) return -1;
             
             // Perform removal using swap-with-last algorithm.
@@ -380,9 +383,15 @@ int rmdir_empty(const char *path) {
         
         // Use pointer comparison instead of name comparison.
         if (p->children[i] == d) { 
-            node_free(d);
+
+            // Swap first, then free node!
             p->children[i] = p->children[p->child_count-1];
             p->child_count--;
+            node_free(d);
+
+            // Update parent metadata.
+            p->modified = p->accessed = time(NULL);
+
             return 0;
         }
     }
