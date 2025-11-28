@@ -1,6 +1,7 @@
 #include "fs.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 int main(void){
     fs_init();
@@ -67,6 +68,54 @@ while (printf("fsh> "), fflush(stdout), fgets(line, sizeof(line), stdin)) {
     else if (!strcmp(cmd,"rmdir")) {
         if (n < 2) { printf("usage: rmdir PATH\n"); continue; }
         printf("%s\n", rmdir_empty(p1) ? "err" : "ok");
+    }
+
+    else if (!strcmp(cmd,"info")) {
+        if (n < 2) { printf("usage: info PATH\n"); continue; }
+        file_info_t info;
+        if (get_file_info(p1, &info) == 0) {
+            printf("Name: %s\n", info.name);
+            printf("Type: %s\n", info.type == N_FILE ? "File" : "Directory");
+            if (info.type == N_FILE) {
+                printf("Size: %zu bytes\n", info.size);
+            } else {
+                printf("Children: %zu\n", info.child_count);
+            }
+            printf("Created: %s\n", format_time(info.created));
+            printf("Modified: %s\n", format_time(info.modified));
+            printf("Accessed: %s\n", format_time(info.accessed));
+            printf("Attributes: %s\n", format_attributes(info.attributes));
+        } else {
+            puts("err");
+        }
+    }
+
+    else if (!strcmp(cmd,"attr")) {
+        if (n < 3) { printf("usage: attr PATH FLAGS\n"); continue; }
+        int attrs = atoi(p2);
+        printf("%s\n", set_file_attributes(p1, (uint8_t)attrs) ? "err" : "ok");
+    }
+
+    else if (!strcmp(cmd,"touch")) {
+        if (n < 2) { printf("usage: touch PATH\n"); continue; }
+        printf("%s\n", touch_file(p1) ? "err" : "ok");
+    }
+
+    else if (!strcmp(cmd,"help")) {
+        puts("Commands:");
+        puts("  mkdir PATH - create directory");
+        puts("  ls [PATH] - list directory");
+        puts("  create PATH - create file");
+        puts("  cd PATH - change directory");
+        puts("  write PATH TEXT - write to file");
+        puts("  read PATH - read file");
+        puts("  rm PATH - remove file");
+        puts("  rmdir PATH - remove directory");
+        puts("  info PATH - show metadata");
+        puts("  attr PATH FLAGS - set attributes");
+        puts("  touch PATH - update timestamps");
+        puts("  help - show this help");
+        puts("  exit - quit");
     }
 
     else puts("Unknown Command");
