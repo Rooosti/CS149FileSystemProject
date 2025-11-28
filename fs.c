@@ -15,7 +15,8 @@ static node_t *node_new(node_type t, const char *name, node_t *parent) {
 
     // Set up basic properties of a node (type, name, and parent).
     node_t *n = calloc(1, sizeof(*n)); // Allocate memory and set to zero.
-    n->type = t; n->parent = parent;
+    n->type = t; 
+    n->parent = parent;
     strncpy(n->name, name, NAME_MAX);
     
     // Initialize metadata timestamps.
@@ -66,10 +67,30 @@ void fs_destroy(void) {
 // Add a child to a directory.
 static node_t *dir_add(node_t *dir, node_t *child) {
 
-    // Validate that passed in node is a directory and is not full.
+    // Validate that passed in directory is not null, that the node is a directory, and the directory is not full.
     if (!dir || dir->type!=N_DIR || dir->child_count>=MAX_CHILDREN) return NULL;
 
+    // Validate the child pointer is not null.
+    if (!child) return NULL;
+
+    // Prevent attaching a node that already belongs to another directory.
+    if (child->parent && child->parent != dir) return NULL;
+
+    // Prevent adding the same child twice.
+    for (size_t i = 0; i < dir->child_count; i++) {
+        if (dir->children[i] == child) {
+            return dir->children[i];
+        }
+    }
+    // Put the child into the children array of the directory and increment the counter.
     dir->children[dir->child_count++] = child;
+
+    // Set the child's parent pointer to point back to dir (tree is bidirectional).
+    child->parent = dir;
+
+    // Update directory metadata.
+    dir->modified = dir->accessed = time(NULL);
+
     return child;
 }
 
