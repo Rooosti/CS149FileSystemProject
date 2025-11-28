@@ -52,7 +52,15 @@ static void node_free(node_t *n) {
 }
 
 // Clean up the entire file system.
-void fs_destroy(void) { node_free(root); root = NULL; }
+void fs_destroy(void) { 
+
+    // Free nodes starting from root.
+    node_free(root); 
+    root = NULL; 
+
+    // Make sure to reassign CWD to NULL!
+    cwd = NULL;
+}
 
 // Directory management helper functions:
 // Add a child to a directory.
@@ -225,7 +233,7 @@ int create_file(const char *path) {
     parent->modified = parent->accessed = now;
 
     // Return result.
-    return dir_add(parent, f) ? 0 : -1;
+    return 0;
 }
 
 // Implements dynamic memory management to handle growing file storage as per needs.
