@@ -168,6 +168,10 @@ int fs_cd(const char *path) {
     node_t *d = walk_from(cwd, path, 0, NULL);
     if (!d || d->type != N_DIR) return -1;
     cwd = d;
+    
+    // Update access time since we accessed the directory.
+    d->accessed = time(NULL);
+    
     return 0;
 }
 
@@ -208,6 +212,9 @@ int mkdir_p(const char *path) {
             } else if (n->type != N_DIR) {
                 // trying to mkdir where a file already exists
                 return -1;
+            } else {
+                // Update accessed time when traversing through existing directory.
+                n->accessed = time(NULL);
             }
             cur = n;
         }
@@ -398,6 +405,12 @@ int rmdir_empty(const char *path) {
 
     // Get parent directory of directory to be removed.
     node_t *p = d->parent;
+    
+    // Prevent removal of a directory in a READ_ONLY parent directory.
+    if (p->attributes & ATTR_READONLY) return -1;
+    
+    // Prevent removal of a READ_ONLY directory.
+    if (d->attributes & ATTR_READONLY) return -1;
 
     // Find and remove directory using swap-with-last algorithm (linear search over children).
     for (size_t i = 0; i < p->child_count; i++) {
