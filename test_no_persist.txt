@@ -1,0 +1,6 @@
+mkdir /test
+create /test/file.txt
+write /test/file.txt Hello World
+read /test/file.txt
+help
+exit

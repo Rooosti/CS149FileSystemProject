@@ -100,6 +100,79 @@ while (printf("fsh> "), fflush(stdout), fgets(line, sizeof(line), stdin)) {
         printf("%s\n", touch_file(p1) ? "Error touching file" : "Successfully touched file");
     }
     
+    else if (!strcmp(cmd,"rename") || !strcmp(cmd,"mv")) {
+        if (n < 3) { printf("usage: %s OLD_PATH NEW_PATH\n", cmd); continue; }
+        printf("%s\n", rename_file(p1, p2) ? "Error renaming file" : "Successfully renamed/moved file");
+    }
+    
+    else if (!strcmp(cmd,"open")) {
+        if (n < 3) { printf("usage: open PATH MODE (r/w/rw)\n"); continue; }
+        int flags = 0;
+        if (strcmp(p2, "r") == 0) flags = O_RDONLY;
+        else if (strcmp(p2, "w") == 0) flags = O_WRONLY;
+        else if (strcmp(p2, "rw") == 0) flags = O_RDWR;
+        else { printf("Invalid mode. Use r, w, or rw\n"); continue; }
+        
+        int fd = fs_open(p1, flags);
+        if (fd >= 0) {
+            printf("File opened with descriptor: %d\n", fd);
+        } else {
+            printf("Error opening file\n");
+        }
+    }
+    
+    else if (!strcmp(cmd,"close")) {
+        if (n < 2) { printf("usage: close FD\n"); continue; }
+        int fd = atoi(p1);
+        printf("%s\n", fs_close(fd) ? "Error closing file" : "Successfully closed file");
+    }
+    
+    else if (!strcmp(cmd,"readfd")) {
+        if (n < 2) { printf("usage: readfd FD [LENGTH]\n"); continue; }
+        int fd = atoi(p1);
+        size_t len = 1024;
+        if (n >= 3) len = (size_t)atoi(p2);
+        
+        char *buf = malloc(len + 1);
+        if (!buf) { printf("Memory allocation error\n"); continue; }
+        
+        ssize_t r = fs_read_fd(fd, buf, len);
+        if (r >= 0) {
+            buf[r] = '\0';
+            printf("%s", buf);
+            if (r > 0 && buf[r-1] != '\n') puts("");
+        } else {
+            printf("Error reading from file descriptor\n");
+        }
+        free(buf);
+    }
+    
+    else if (!strcmp(cmd,"writefd")) {
+        if (n < 3) { printf("usage: writefd FD DATA\n"); continue; }
+        int fd = atoi(p1);
+        ssize_t w = fs_write_fd(fd, p2, strlen(p2));
+        if (w >= 0) {
+            printf("Wrote %zd bytes\n", w);
+        } else {
+            printf("Error writing to file descriptor\n");
+        }
+    }
+    
+    else if (!strcmp(cmd,"seek")) {
+        if (n < 3) { printf("usage: seek FD OFFSET [WHENCE]\n"); continue; }
+        int fd = atoi(p1);
+        off_t offset = (off_t)atoll(p2);
+        int whence = 0; // SEEK_SET
+        if (n >= 4) whence = atoi(line + strlen(cmd) + strlen(p1) + strlen(p2) + 3);
+        
+        off_t pos = fs_seek(fd, offset, whence);
+        if (pos >= 0) {
+            printf("New position: %lld\n", (long long)pos);
+        } else {
+            printf("Error seeking\n");
+        }
+    }
+    
     else if (!strcmp(cmd,"search")) {
         if (n < 2) {
             printf("usage: search TERM\n");
@@ -116,20 +189,36 @@ while (printf("fsh> "), fflush(stdout), fgets(line, sizeof(line), stdin)) {
 
     else if (!strcmp(cmd,"help")) {
         puts("Commands:");
-        puts("  mkdir PATH - create directory");
-        puts("  ls [PATH] - list directory");
-        puts("  create PATH - create file");
-        puts("  cd PATH - change directory");
-        puts("  write PATH TEXT - write to file");
-        puts("  read PATH - read file");
-        puts("  rm PATH - remove file");
-        puts("  rmdir PATH - remove directory");
-        puts("  info PATH - show metadata");
-        puts("  attr PATH FLAGS - set attributes");
-        puts("  touch PATH - update timestamps");
-        puts("  search TERM - find paths containing a term");
-        puts("  help - show this help");
-        puts("  exit - quit");
+        puts("  File & Directory Management:");
+        puts("    mkdir PATH             - create directory");
+        puts("    ls [PATH]              - list directory");
+        puts("    create PATH            - create file");
+        puts("    cd PATH                - change directory");
+        puts("    rm PATH                - remove file");
+        puts("    rmdir PATH             - remove directory");
+        puts("    rename OLD NEW         - rename/move file or directory");
+        puts("    mv OLD NEW             - alias for rename");
+        puts("");
+        puts("  File I/O (Path-based):");
+        puts("    write PATH TEXT        - write to file");
+        puts("    read PATH              - read file");
+        puts("");
+        puts("  File I/O (Descriptor-based):");
+        puts("    open PATH MODE         - open file (mode: r/w/rw) returns FD");
+        puts("    close FD               - close file descriptor");
+        puts("    readfd FD [LEN]        - read from file descriptor");
+        puts("    writefd FD TEXT        - write to file descriptor");
+        puts("    seek FD OFFSET [WHE]   - seek in file (whence: 0=SET,1=CUR,2=END)");
+        puts("");
+        puts("  Metadata & Search:");
+        puts("    info PATH              - show file/directory metadata");
+        puts("    attr PATH FLAGS        - set attributes (0-15)");
+        puts("    touch PATH             - update timestamps");
+        puts("    search TERM            - find files matching term");
+        puts("");
+        puts("  System:");
+        puts("    help                   - show this help");
+        puts("    exit                   - quit");
     }
 
     else puts("Unknown Command");

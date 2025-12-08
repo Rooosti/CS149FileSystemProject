@@ -1,0 +1,4 @@
+load demo_fs.dat
+ls /test
+read /test/demo.txt
+exit

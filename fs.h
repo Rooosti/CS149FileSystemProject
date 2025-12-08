@@ -64,6 +64,19 @@ int create_file(const char *path); // Create empty file.
 ssize_t write_file(const char *path, size_t off, const void *buf, size_t len); // Write to file.
 ssize_t read_file(const char *path, size_t off, void *buf, size_t len); // Read from file.
 int rm_file(const char *path); // Remove file.
+int rename_file(const char *old_path, const char *new_path); // Rename/move file or directory.
+
+// File descriptor operations:
+#define MAX_OPEN_FILES 32 // Maximum number of simultaneously open files.
+#define O_RDONLY 0x01 // Read-only mode.
+#define O_WRONLY 0x02 // Write-only mode.
+#define O_RDWR   0x03 // Read-write mode.
+
+int fs_open(const char *path, int flags); // Open file and return file descriptor.
+int fs_close(int fd); // Close file descriptor.
+ssize_t fs_read_fd(int fd, void *buf, size_t len); // Read from file descriptor.
+ssize_t fs_write_fd(int fd, const void *buf, size_t len); // Write to file descriptor.
+off_t fs_seek(int fd, off_t offset, int whence); // Seek to position in file.
 
 // Metadata operations:
 // Use new data structure to return just metadata information without other node information.

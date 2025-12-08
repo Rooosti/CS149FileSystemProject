@@ -656,3 +656,203 @@ int fs_search(const char *term) {
     int matches = search_subtree(cwd, term);
     return matches >= 0 ? matches : -1;
 }
+
+// Rename or move a file/directory.
+int rename_file(const char *old_path, const char *new_path) {
+    if (!old_path || !new_path) return -1;
+    
+    // Find the node to rename.
+    node_t *n = walk(old_path, 0, NULL);
+    if (!n) return -1;
+    
+    // Can't rename root.
+    if (n == root) return -1;
+    
+    // Check if source is readonly.
+    if (n->attributes & ATTR_READONLY) return -1;
+    if (n->parent && (n->parent->attributes & ATTR_READONLY)) return -1;
+    
+    // Parse new path to get new parent and new name.
+    char new_name[NAME_MAX + 1] = {0};
+    node_t *new_parent = walk(new_path, 1, new_name);
+    
+    if (!new_parent || new_parent->type != N_DIR) return -1;
+    
+    // Check if new parent is readonly.
+    if (new_parent->attributes & ATTR_READONLY) return -1;
+    
+    // Check if name already exists in new parent.
+    if (dir_find(new_parent, new_name)) return -1;
+    
+    // If moving to different directory, remove from old parent.
+    if (n->parent != new_parent) {
+        // Remove from old parent's children array.
+        for (size_t i = 0; i < n->parent->child_count; i++) {
+            if (n->parent->children[i] == n) {
+                n->parent->children[i] = n->parent->children[n->parent->child_count - 1];
+                n->parent->child_count--;
+                break;
+            }
+        }
+        
+        // Add to new parent.
+        if (!dir_add(new_parent, n)) return -1;
+    }
+    
+    // Update the name.
+    strncpy(n->name, new_name, NAME_MAX);
+    n->name[NAME_MAX] = '\0';
+    
+    // Update timestamps.
+    time_t now = time(NULL);
+    n->modified = now;
+    if (n->parent) n->parent->modified = now;
+    
+    return 0;
+}
+
+// File descriptor table.
+typedef struct {
+    node_t *node;   // Pointer to file node.
+    size_t offset;  // Current position in file.
+    int flags;      // Access mode (O_RDONLY, O_WRONLY, O_RDWR).
+    int in_use;     // Is this slot in use?
+} file_descriptor_t;
+
+static file_descriptor_t fd_table[MAX_OPEN_FILES];
+
+// Open a file and return file descriptor.
+int fs_open(const char *path, int flags) {
+    // Find the file.
+    node_t *n = walk(path, 0, NULL);
+    if (!n || n->type != N_FILE) return -1;
+    
+    // Check permissions.
+    if ((flags & O_WRONLY || flags & O_RDWR) && (n->attributes & ATTR_READONLY)) {
+        return -1; // Can't open readonly file for writing.
+    }
+    
+    // Find a free slot in fd table.
+    for (int i = 0; i < MAX_OPEN_FILES; i++) {
+        if (!fd_table[i].in_use) {
+            fd_table[i].node = n;
+            fd_table[i].offset = 0;
+            fd_table[i].flags = flags;
+            fd_table[i].in_use = 1;
+            
+            // Update access time.
+            n->accessed = time(NULL);
+            
+            return i;
+        }
+    }
+    
+    return -1; // No free file descriptors.
+}
+
+// Close a file descriptor.
+int fs_close(int fd) {
+    if (fd < 0 || fd >= MAX_OPEN_FILES || !fd_table[fd].in_use) return -1;
+    
+    fd_table[fd].in_use = 0;
+    fd_table[fd].node = NULL;
+    fd_table[fd].offset = 0;
+    fd_table[fd].flags = 0;
+    
+    return 0;
+}
+
+// Read from file descriptor.
+ssize_t fs_read_fd(int fd, void *buf, size_t len) {
+    if (fd < 0 || fd >= MAX_OPEN_FILES || !fd_table[fd].in_use) return -1;
+    if (!buf) return -1;
+    
+    file_descriptor_t *f = &fd_table[fd];
+    
+    // Check if file is open for reading.
+    if (!(f->flags & O_RDONLY) && !(f->flags & O_RDWR)) return -1;
+    
+    node_t *n = f->node;
+    if (!n || n->type != N_FILE) return -1;
+    
+    // Check for EOF.
+    if (f->offset >= n->size) return 0;
+    
+    // Calculate bytes to read.
+    size_t to_read = n->size - f->offset;
+    if (to_read > len) to_read = len;
+    
+    // Copy data.
+    memcpy(buf, n->data + f->offset, to_read);
+    
+    // Update offset and access time.
+    f->offset += to_read;
+    n->accessed = time(NULL);
+    
+    return (ssize_t)to_read;
+}
+
+// Write to file descriptor.
+ssize_t fs_write_fd(int fd, const void *buf, size_t len) {
+    if (fd < 0 || fd >= MAX_OPEN_FILES || !fd_table[fd].in_use) return -1;
+    if (!buf) return -1;
+    
+    file_descriptor_t *f = &fd_table[fd];
+    
+    // Check if file is open for writing.
+    if (!(f->flags & O_WRONLY) && !(f->flags & O_RDWR)) return -1;
+    
+    node_t *n = f->node;
+    if (!n || n->type != N_FILE) return -1;
+    
+    // Check if file is readonly.
+    if (n->attributes & ATTR_READONLY) return -1;
+    
+    // Ensure capacity.
+    size_t need = f->offset + len;
+    if (ensure_cap(n, need) < 0) return -1;
+    
+    // Write data.
+    memcpy(n->data + f->offset, buf, len);
+    
+    // Update size if we extended the file.
+    if (need > n->size) n->size = need;
+    
+    // Update offset and timestamps.
+    f->offset += len;
+    time_t now = time(NULL);
+    n->modified = now;
+    n->accessed = now;
+    
+    return (ssize_t)len;
+}
+
+// Seek to a position in file.
+off_t fs_seek(int fd, off_t offset, int whence) {
+    if (fd < 0 || fd >= MAX_OPEN_FILES || !fd_table[fd].in_use) return -1;
+    
+    file_descriptor_t *f = &fd_table[fd];
+    node_t *n = f->node;
+    if (!n || n->type != N_FILE) return -1;
+    
+    off_t new_offset;
+    
+    switch (whence) {
+        case 0: // SEEK_SET
+            new_offset = offset;
+            break;
+        case 1: // SEEK_CUR
+            new_offset = (off_t)f->offset + offset;
+            break;
+        case 2: // SEEK_END
+            new_offset = (off_t)n->size + offset;
+            break;
+        default:
+            return -1;
+    }
+    
+    if (new_offset < 0) return -1;
+    
+    f->offset = (size_t)new_offset;
+    return new_offset;
+}

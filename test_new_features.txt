@@ -1,0 +1,65 @@
+# Test script for new file system features
+# Copy and paste these commands into the shell
+
+# Basic setup
+mkdir /home/user
+cd /home/user
+create test.txt
+write test.txt Hello World!
+read test.txt
+
+# Test 1: Rename file
+rename test.txt hello.txt
+ls
+read hello.txt
+
+# Test 2: Move file to different directory
+mkdir /backup
+mv hello.txt /backup/hello.txt
+ls
+ls /backup
+
+# Test 3: File descriptor operations
+create numbers.txt
+open numbers.txt w
+writefd 0 Line 1
+writefd 0 Line 2
+writefd 0 Line 3
+close 0
+
+# Read using file descriptor
+open /backup/hello.txt r
+readfd 0
+close 0
+
+# Test 4: Seek operations
+create seektest.txt
+write seektest.txt 0123456789ABCDEF
+open seektest.txt r
+readfd 0 5
+seek 0 10 0
+readfd 0 5
+close 0
+
+# Test 5: Save filesystem to disk
+cd /
+mkdir /data
+create /data/important.txt
+write /data/important.txt This data should persist!
+save filesystem.dat
+ls /data
+
+# Test 6: Clear and reload
+# (In real usage, exit and restart the program, then:)
+load filesystem.dat
+ls /data
+read /data/important.txt
+
+# Test 7: Search functionality
+create /home/user/document.txt
+create /home/user/picture.jpg
+create /backup/document.bak
+search document
+
+# Show help for all commands
+help
