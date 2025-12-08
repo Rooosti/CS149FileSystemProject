@@ -110,6 +110,89 @@ static node_t *dir_find(node_t *dir, const char *name) {
     return NULL;
 }
 
+// Build full path for a node into buffer (including leading '/').
+static void node_get_path(node_t *n, char *buf, size_t bufsize) {
+    if (!n || !buf || bufsize == 0) {
+        return;
+    }
+
+    // case when just "/"
+    if (n == root) {
+        if (bufsize > 1) {
+            buf[0] = '/';
+            buf[1] = '\0';
+        } else {
+            buf[0] = '\0';
+        }
+        return;
+    }
+
+    // Collect segments by walking up to root
+    const char *segments[64];
+    size_t count = 0;
+
+    node_t *cur = n;
+    while (cur && cur != root && count < 64) {
+        segments[count++] = cur->name;
+        cur = cur->parent;
+    }
+
+    size_t pos = 0;
+
+    // Leading slash
+    if (pos < bufsize - 1) {
+        buf[pos++] = '/';
+    }
+
+    // Append segments in reverse (from closest to root)
+    for (size_t i = 0; i < count && pos < bufsize - 1; i++) {
+        const char *name = segments[count - 1 - i];
+        size_t len = strlen(name);
+
+
+        // Truncate if necessary
+        if (pos + len >= bufsize - 1) {
+            len = (bufsize - 1) - pos;
+        }
+
+        memcpy(buf + pos, name, len);
+        pos += len;
+
+        if (i + 1 < count && pos < bufsize - 1) {
+            buf[pos++] = '/';
+        }
+    }
+    buf[pos] = '\0';
+}
+
+
+// Recursive helper: search subtree rooted at `n` for names containing `term`.
+// Prints full paths of matches. Returns number of matches.
+static int search_subtree(node_t *n, const char *term) {
+    if (!n || !term || term[0] == '\0') return 0;
+
+    int matches = 0;
+
+    // Visiting this node counts as an access.
+    n->accessed = time(NULL);
+
+    // Skip root's empty name when matching.
+    if (n != root && strstr(n->name, term) != NULL) {
+        char path[1024];
+        node_get_path(n, path, sizeof(path));
+        printf("%s%s\n", path, n->type == N_DIR ? "/" : "");
+        matches++;
+    }
+
+    // Recurse into children if this is a directory.
+    if (n->type == N_DIR) {
+        for (size_t i = 0; i < n->child_count; i++) {
+            matches += search_subtree(n->children[i], term);
+        }
+    }
+
+    return matches;
+}
 
 static node_t *walk_from(node_t *start,
                          const char *path,
@@ -566,4 +649,10 @@ const char* format_attributes(uint8_t attributes) {
     }
     
     return buffer;
+}
+
+int fs_search(const char *term) {
+    if (!term || term[0] == '\0') return -1;
+    int matches = search_subtree(cwd, term);
+    return matches >= 0 ? matches : -1;
 }

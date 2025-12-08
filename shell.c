@@ -16,7 +16,7 @@ while (printf("fsh> "), fflush(stdout), fgets(line, sizeof(line), stdin)) {
 
     else if (!strcmp(cmd,"mkdir")) {
         if (n < 2) { printf("usage: mkdir PATH\n"); continue; }
-        printf("%s\n", mkdir_p(p1) ? "err" : "ok");
+        printf("%s\n", mkdir_p(p1) ? "Could not make directory" : "Successfuly created directory!");
     }
 
     else if (!strcmp(cmd,"ls")) {
@@ -30,12 +30,11 @@ while (printf("fsh> "), fflush(stdout), fgets(line, sizeof(line), stdin)) {
 
     else if (!strcmp(cmd,"create")) {
         if (n < 2) { printf("usage: create PATH\n"); continue; }
-        printf("%s\n", create_file(p1) ? "err" : "ok");
+        printf("%s\n", create_file(p1) ? "Could not create file" : "Successfuly created file!");
     }
 
     else if (!strcmp(cmd, "cd")) {
         if (n < 2) {
-            // pick your favorite: root, or stay in place
             (void)fs_cd("/");
         } else {
             (void)fs_cd(p1);
@@ -56,18 +55,18 @@ while (printf("fsh> "), fflush(stdout), fgets(line, sizeof(line), stdin)) {
             printf("%s", buf);
             if (r > 0 && buf[r-1] != '\n') puts("");
         } else {
-            puts("err");
+            puts("Error reading file");
         }
     }
 
     else if (!strcmp(cmd,"rm")) {
         if (n < 2) { printf("usage: rm PATH\n"); continue; }
-        printf("%s\n", rm_file(p1) ? "err" : "ok");
+        printf("%s\n", rm_file(p1) ? "Could not remove file" : "Successfuly removed file!");
     }
 
     else if (!strcmp(cmd,"rmdir")) {
         if (n < 2) { printf("usage: rmdir PATH\n"); continue; }
-        printf("%s\n", rmdir_empty(p1) ? "err" : "ok");
+        printf("%s\n", rmdir_empty(p1) ? "Error removing directory. Please check if empty" : "Successfuly removed directory!");
     }
 
     else if (!strcmp(cmd,"info")) {
@@ -86,19 +85,33 @@ while (printf("fsh> "), fflush(stdout), fgets(line, sizeof(line), stdin)) {
             printf("Accessed: %s\n", format_time(info.accessed));
             printf("Attributes: %s\n", format_attributes(info.attributes));
         } else {
-            puts("err");
+            puts("Error reading file metadata");
         }
     }
 
     else if (!strcmp(cmd,"attr")) {
         if (n < 3) { printf("usage: attr PATH FLAGS\n"); continue; }
         int attrs = atoi(p2);
-        printf("%s\n", set_file_attributes(p1, (uint8_t)attrs) ? "err" : "ok");
+        printf("%s\n", set_file_attributes(p1, (uint8_t)attrs) ? "Error changing attributes" : "Successfully changed file attributes1");
     }
 
     else if (!strcmp(cmd,"touch")) {
         if (n < 2) { printf("usage: touch PATH\n"); continue; }
-        printf("%s\n", touch_file(p1) ? "err" : "ok");
+        printf("%s\n", touch_file(p1) ? "Error touching file" : "Successfully touched file");
+    }
+    
+    else if (!strcmp(cmd,"search")) {
+        if (n < 2) {
+            printf("usage: search TERM\n");
+            continue;
+        }
+
+        int matches = fs_search(p1);
+        if (matches < 0) {
+            puts("Error: fs_search returned negative count for matches?");
+        } else if (matches == 0) {
+            puts("(no matches)");
+        }
     }
 
     else if (!strcmp(cmd,"help")) {
@@ -114,6 +127,7 @@ while (printf("fsh> "), fflush(stdout), fgets(line, sizeof(line), stdin)) {
         puts("  info PATH - show metadata");
         puts("  attr PATH FLAGS - set attributes");
         puts("  touch PATH - update timestamps");
+        puts("  search TERM - find paths containing a term");
         puts("  help - show this help");
         puts("  exit - quit");
     }

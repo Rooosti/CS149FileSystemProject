@@ -57,6 +57,7 @@ int fs_cd(const char *path); // Change current working directory of file system 
 int mkdir_p(const char *path); // Create directory (parents optional).
 int rmdir_empty(const char *path); // Remove empty directory.
 int ls_dir(const char *path); // List directory contents.
+int fs_search(const char *term); // Search file system for a file name that matches with term
 
 // File operations:
 int create_file(const char *path); // Create empty file.
