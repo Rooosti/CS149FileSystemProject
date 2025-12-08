@@ -1,0 +1,35 @@
+help
+mkdir /demo
+mkdir /demo/files
+ls /
+create /demo/test.txt
+write /demo/test.txt Hello_File_System!
+read /demo/test.txt
+open /demo/log.txt w
+writefd 0 "Log entry 1"
+writefd 0 " Log entry 2"
+writefd 0 " Log entry 3"
+close 0
+read /demo/log.txt
+info /demo/test.txt
+info /demo/log.txt
+attr /demo/test.txt 2
+info /demo/test.txt
+write /demo/test.txt This_will_fail
+attr /demo/test.txt 0
+rename /demo/test.txt /demo/renamed.txt
+ls /demo
+search txt
+create /demo/file1.txt
+create /demo/file2.txt
+open /demo/file1.txt w
+open /demo/file2.txt w
+writefd 0 Content_in_file_1
+writefd 1 Content_in_file_2
+close 0
+close 1
+read /demo/file1.txt
+read /demo/file2.txt
+rm /demo/renamed.txt
+ls /demo
+exit

@@ -1,7 +1,0 @@
-mkdir /test
-create /test/demo.txt
-write /test/demo.txt This is a test file!
-read /test/demo.txt
-info /test/demo.txt
-save demo_fs.dat
-exit

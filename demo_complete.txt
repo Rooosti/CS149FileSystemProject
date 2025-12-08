@@ -1,0 +1,281 @@
+# ============================================================
+# COMPLETE FILE SYSTEM DEMO SCRIPT
+# Showcases ALL commands and features
+# Copy and paste these commands into your shell!
+# ============================================================
+
+# ------------------------------------------------------------
+# SECTION 1: HELP & INITIAL STATE
+# ------------------------------------------------------------
+help
+ls /
+
+# ------------------------------------------------------------
+# SECTION 2: DIRECTORY CREATION (mkdir)
+# ------------------------------------------------------------
+mkdir /projects
+mkdir /projects/cs149
+mkdir /projects/cs149/src
+mkdir /documents
+mkdir /temp
+ls /
+ls /projects
+ls /projects/cs149
+
+# ------------------------------------------------------------
+# SECTION 3: NAVIGATION (cd, ls)
+# ------------------------------------------------------------
+cd /projects
+ls
+cd cs149
+ls
+cd /
+ls
+
+# ------------------------------------------------------------
+# SECTION 4: FILE CREATION (create)
+# ------------------------------------------------------------
+create /projects/cs149/readme.txt
+create /projects/cs149/src/main.c
+create /projects/cs149/src/helper.c
+create /documents/report.txt
+create /temp/scratch.txt
+ls /projects/cs149
+ls /projects/cs149/src
+ls /documents
+
+# ------------------------------------------------------------
+# SECTION 5: PATH-BASED WRITE (write)
+# Shows manual offset handling
+# ------------------------------------------------------------
+write /projects/cs149/readme.txt "CS149 File System Project"
+write /documents/report.txt "Project Report: Implementation of in-memory filesystem with file descriptors"
+write /temp/scratch.txt "Temporary notes"
+read /projects/cs149/readme.txt
+read /documents/report.txt
+
+# ------------------------------------------------------------
+# SECTION 6: PATH-BASED READ (read)
+# ------------------------------------------------------------
+read /projects/cs149/readme.txt
+read /documents/report.txt
+read /temp/scratch.txt
+
+# ------------------------------------------------------------
+# SECTION 7: FILE METADATA (info)
+# Shows timestamps, size, attributes
+# ------------------------------------------------------------
+info /projects/cs149/readme.txt
+info /documents/report.txt
+info /projects/cs149
+info /documents
+
+# ------------------------------------------------------------
+# SECTION 8: FILE DESCRIPTORS - BASIC OPEN/CLOSE
+# ------------------------------------------------------------
+open /projects/cs149/src/main.c w
+close 0
+
+# ------------------------------------------------------------
+# SECTION 9: FILE DESCRIPTORS - WRITE (writefd)
+# Shows automatic position tracking
+# ------------------------------------------------------------
+open /projects/cs149/src/main.c w
+writefd 0 "#include <stdio.h>\n"
+writefd 0 "\n"
+writefd 0 "int main(void) {\n"
+writefd 0 "    printf(\"Hello, File System!\\n\");\n"
+writefd 0 "    return 0;\n"
+writefd 0 "}\n"
+close 0
+
+# ------------------------------------------------------------
+# SECTION 10: FILE DESCRIPTORS - READ (readfd)
+# Shows automatic position tracking
+# ------------------------------------------------------------
+open /projects/cs149/src/main.c r
+readfd 0
+close 0
+
+# ------------------------------------------------------------
+# SECTION 11: MULTIPLE FILES OPEN SIMULTANEOUSLY
+# Demonstrates independent file descriptors
+# ------------------------------------------------------------
+open /projects/cs149/src/main.c r
+open /documents/report.txt r
+open /temp/scratch.txt w
+readfd 0
+readfd 1
+writefd 2 " - Additional note"
+close 0
+close 1
+close 2
+
+# ------------------------------------------------------------
+# SECTION 12: SEEK OPERATIONS
+# Shows random access within a file
+# ------------------------------------------------------------
+open /projects/cs149/readme.txt rw
+readfd 0
+seek 0 0 0
+readfd 0
+writefd 0 " - Updated"
+seek 0 0 0
+readfd 0
+close 0
+
+# ------------------------------------------------------------
+# SECTION 13: FILE ATTRIBUTES - READONLY
+# Shows protection mechanisms
+# ------------------------------------------------------------
+info /documents/report.txt
+attr /documents/report.txt 2
+info /documents/report.txt
+write /documents/report.txt "This should fail"
+open /documents/report.txt w
+attr /documents/report.txt 0
+info /documents/report.txt
+write /documents/report.txt "Now this works"
+read /documents/report.txt
+
+# ------------------------------------------------------------
+# SECTION 14: FILE ATTRIBUTES - HIDDEN
+# ------------------------------------------------------------
+attr /temp/scratch.txt 1
+info /temp/scratch.txt
+attr /temp/scratch.txt 0
+info /temp/scratch.txt
+
+# ------------------------------------------------------------
+# SECTION 15: FILE ATTRIBUTES - COMBINED
+# Shows bitwise combination (readonly + hidden = 3)
+# ------------------------------------------------------------
+create /projects/config.txt
+write /projects/config.txt "secret configuration"
+attr /projects/config.txt 3
+info /projects/config.txt
+write /projects/config.txt "should fail"
+attr /projects/config.txt 0
+
+# ------------------------------------------------------------
+# SECTION 16: TOUCH COMMAND
+# Updates timestamps
+# ------------------------------------------------------------
+info /temp/scratch.txt
+touch /temp/scratch.txt
+info /temp/scratch.txt
+
+# ------------------------------------------------------------
+# SECTION 17: FILE RENAME (rename/mv)
+# ------------------------------------------------------------
+ls /projects/cs149
+rename /projects/cs149/readme.txt /projects/cs149/README.txt
+ls /projects/cs149
+read /projects/cs149/README.txt
+
+# ------------------------------------------------------------
+# SECTION 18: FILE MOVE (mv)
+# Move file to different directory
+# ------------------------------------------------------------
+ls /projects/cs149
+ls /documents
+mv /projects/cs149/README.txt /documents/PROJECT_README.txt
+ls /projects/cs149
+ls /documents
+read /documents/PROJECT_README.txt
+
+# ------------------------------------------------------------
+# SECTION 19: SEARCH FUNCTIONALITY
+# ------------------------------------------------------------
+search txt
+search main
+search report
+search README
+
+# ------------------------------------------------------------
+# SECTION 20: FILE DELETION (rm)
+# ------------------------------------------------------------
+create /temp/delete_me.txt
+write /temp/delete_me.txt "temporary file"
+ls /temp
+info /temp/delete_me.txt
+rm /temp/delete_me.txt
+ls /temp
+info /temp/delete_me.txt
+
+# ------------------------------------------------------------
+# SECTION 21: DIRECTORY DELETION (rmdir)
+# Only works on empty directories
+# ------------------------------------------------------------
+mkdir /temp/empty_dir
+ls /temp
+rmdir /temp/empty_dir
+ls /temp
+mkdir /temp/nonempty
+create /temp/nonempty/file.txt
+rmdir /temp/nonempty
+rm /temp/nonempty/file.txt
+rmdir /temp/nonempty
+ls /temp
+
+# ------------------------------------------------------------
+# SECTION 22: COMPLEX WORKFLOW - LOG FILE SIMULATION
+# ------------------------------------------------------------
+create /temp/system.log
+open /temp/system.log w
+writefd 0 "[2024-12-08 10:00:00] System started\n"
+writefd 0 "[2024-12-08 10:00:05] Loading configuration\n"
+writefd 0 "[2024-12-08 10:00:10] Configuration loaded successfully\n"
+writefd 0 "[2024-12-08 10:00:15] Starting services\n"
+writefd 0 "[2024-12-08 10:00:20] All services running\n"
+close 0
+read /temp/system.log
+info /temp/system.log
+
+# ------------------------------------------------------------
+# SECTION 23: COMPLEX WORKFLOW - DATA PROCESSING
+# Simulate reading input, processing, writing output
+# ------------------------------------------------------------
+create /temp/input.txt
+create /temp/output.txt
+write /temp/input.txt "Data line 1\nData line 2\nData line 3"
+open /temp/input.txt r
+open /temp/output.txt w
+readfd 0
+writefd 1 "Processed: Data line 1\n"
+writefd 1 "Processed: Data line 2\n"
+writefd 1 "Processed: Data line 3\n"
+close 0
+close 1
+read /temp/output.txt
+
+# ------------------------------------------------------------
+# SECTION 24: FINAL FILESYSTEM STATE
+# ------------------------------------------------------------
+cd /
+ls /
+ls /projects
+ls /projects/cs149
+ls /projects/cs149/src
+ls /documents
+ls /temp
+
+# ------------------------------------------------------------
+# SECTION 25: COMPREHENSIVE INFO DISPLAY
+# ------------------------------------------------------------
+info /projects
+info /projects/cs149/src/main.c
+info /documents/report.txt
+info /temp/system.log
+
+# ------------------------------------------------------------
+# SECTION 26: SEARCH SUMMARY
+# ------------------------------------------------------------
+search txt
+search log
+search c
+
+# ------------------------------------------------------------
+# DONE!
+# ------------------------------------------------------------
+exit

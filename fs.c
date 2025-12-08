@@ -371,7 +371,7 @@ static int ensure_cap(node_t *f, size_t want) {
     return 0; 
 }
 
-// Implementats file write operation at a specific offset.
+// Implements file write operation at a specific offset.
 // path: file path.
 // off: byte offset indicating where to start writing.
 // buf: pointer to data to write.
@@ -383,6 +383,8 @@ ssize_t write_file(const char *path, size_t off, const void *buf, size_t len) {
 
     // Validate that the file exists and is not a directory.
     if (!f || f->type!=N_FILE) return -1;
+
+    if (f->attributes & ATTR_READONLY) return -1;
 
     // Calculate the total space needed for write operation.
     size_t need = off + len; // Need is the total file size required AFTER the write.
@@ -686,17 +688,28 @@ int rename_file(const char *old_path, const char *new_path) {
     
     // If moving to different directory, remove from old parent.
     if (n->parent != new_parent) {
-        // Remove from old parent's children array.
-        for (size_t i = 0; i < n->parent->child_count; i++) {
-            if (n->parent->children[i] == n) {
-                n->parent->children[i] = n->parent->children[n->parent->child_count - 1];
-                n->parent->child_count--;
+        node_t *old_parent = n->parent;
+
+        // Remove from old parent's children array (swap-with-last).
+        for (size_t i = 0; i < old_parent->child_count; i++) {
+            if (old_parent->children[i] == n) {
+                old_parent->children[i] = old_parent->children[old_parent->child_count - 1];
+                old_parent->child_count--;
                 break;
             }
         }
-        
-        // Add to new parent.
-        if (!dir_add(new_parent, n)) return -1;
+
+        // Clear the parent pointer so dir_add can attach the node to the new parent.
+        n->parent = NULL;
+
+        // Try to add to new parent; on failure, restore to old parent.
+        if (!dir_add(new_parent, n)) {
+            if (!dir_add(old_parent, n)) return -1;
+            return -1;
+        }
+
+        // Update old parent metadata after removal.
+        old_parent->modified = old_parent->accessed = time(NULL);
     }
     
     // Update the name.

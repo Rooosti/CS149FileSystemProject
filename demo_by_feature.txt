@@ -1,0 +1,118 @@
+# ============================================================
+# FEATURE-BY-FEATURE DEMO
+# Each section demonstrates one specific feature
+# ============================================================
+
+# ========== FEATURE 1: DIRECTORY MANAGEMENT ==========
+mkdir /test
+cd /test
+ls
+cd /
+rmdir /test
+ls /
+
+# ========== FEATURE 2: FILE CREATION & PATH-BASED I/O ==========
+create /myfile.txt
+write /myfile.txt "This is path-based writing"
+read /myfile.txt
+info /myfile.txt
+
+# ========== FEATURE 3: FILE DESCRIPTORS - SEQUENTIAL WRITES ==========
+create /sequential.txt
+open /sequential.txt w
+writefd 0 "Line 1\n"
+writefd 0 "Line 2\n"
+writefd 0 "Line 3\n"
+close 0
+read /sequential.txt
+
+# ========== FEATURE 4: FILE DESCRIPTORS - SEQUENTIAL READS ==========
+open /sequential.txt r
+readfd 0 20
+readfd 0 20
+close 0
+
+# ========== FEATURE 5: SEEK OPERATIONS ==========
+open /sequential.txt r
+readfd 0 10
+seek 0 0 0
+readfd 0 10
+close 0
+
+# ========== FEATURE 6: MULTIPLE FILES OPEN ==========
+create /file_a.txt
+create /file_b.txt
+create /file_c.txt
+open /file_a.txt w
+open /file_b.txt w
+open /file_c.txt w
+writefd 0 "Content A"
+writefd 1 "Content B"
+writefd 2 "Content C"
+close 0
+close 1
+close 2
+
+# ========== FEATURE 7: FILE ATTRIBUTES - READONLY ==========
+create /readonly_test.txt
+write /readonly_test.txt "Original content"
+attr /readonly_test.txt 2
+write /readonly_test.txt "Should fail"
+rm /readonly_test.txt
+attr /readonly_test.txt 0
+rm /readonly_test.txt
+
+# ========== FEATURE 8: FILE ATTRIBUTES - HIDDEN ==========
+create /hidden.txt
+attr /hidden.txt 1
+info /hidden.txt
+attr /hidden.txt 0
+
+# ========== FEATURE 9: FILE ATTRIBUTES - COMBINED ==========
+create /protected.txt
+attr /protected.txt 3
+info /protected.txt
+attr /protected.txt 0
+rm /protected.txt
+
+# ========== FEATURE 10: RENAME FILES ==========
+create /old_name.txt
+write /old_name.txt "Some content"
+rename /old_name.txt /new_name.txt
+read /new_name.txt
+
+# ========== FEATURE 11: MOVE FILES ==========
+mkdir /source
+mkdir /destination
+create /source/moveme.txt
+write /source/moveme.txt "Moving this file"
+mv /source/moveme.txt /destination/moved.txt
+ls /source
+ls /destination
+read /destination/moved.txt
+
+# ========== FEATURE 12: TOUCH (UPDATE TIMESTAMPS) ==========
+create /timestamp_test.txt
+info /timestamp_test.txt
+touch /timestamp_test.txt
+info /timestamp_test.txt
+
+# ========== FEATURE 13: SEARCH ==========
+create /search_test1.txt
+create /search_test2.log
+mkdir /search_dir
+create /search_dir/another.txt
+search txt
+search search
+
+# ========== FEATURE 14: DIRECTORY LISTING ==========
+ls /
+ls /destination
+ls /search_dir
+
+# ========== FEATURE 15: FILE INFO ==========
+info /new_name.txt
+info /destination/moved.txt
+info /destination
+
+exit

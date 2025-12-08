@@ -1,0 +1,58 @@
+# ============================================================
+# QUICK DEMO - Essential Commands Only
+# Perfect for a 5-minute demo!
+# ============================================================
+
+# Show help
+help
+
+# Create directory structure
+mkdir /demo
+mkdir /demo/files
+ls /
+
+# Create and write files
+create /demo/test.txt
+write /demo/test.txt "Hello File System!"
+read /demo/test.txt
+
+# File descriptors - multiple writes
+open /demo/log.txt w
+writefd 0 "Log entry 1\n"
+writefd 0 "Log entry 2\n"
+writefd 0 "Log entry 3\n"
+close 0
+read /demo/log.txt
+
+# Show metadata
+info /demo/test.txt
+info /demo/log.txt
+
+# Set attributes (readonly)
+attr /demo/test.txt 2
+info /demo/test.txt
+write /demo/test.txt "This will fail"
+attr /demo/test.txt 0
+
+# Rename and search
+rename /demo/test.txt /demo/renamed.txt
+ls /demo
+search txt
+
+# Multiple files open
+create /demo/file1.txt
+create /demo/file2.txt
+open /demo/file1.txt w
+open /demo/file2.txt w
+writefd 0 "Content in file 1"
+writefd 1 "Content in file 2"
+close 0
+close 1
+read /demo/file1.txt
+read /demo/file2.txt
+
+# Cleanup
+rm /demo/renamed.txt
+ls /demo
+
+exit
